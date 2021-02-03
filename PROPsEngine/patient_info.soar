@@ -1,0 +1,30 @@
+##!
+# @file
+#
+# @created bryan 20201007
+
+# Set up sample patient info for testing, in set form
+sp {propose*scotty-poc*init-input
+    (state <s> ^superstate nil
+              -^wm)
+-->
+    (<s> ^operator <o> + >)
+    (<o> ^name init-scotty) 
+}
+sp {apply*scotty-poc*init-input
+    (state <s> ^operator.name init-scotty)
+-->
+    (<s> ^wm <w>
+         ^V <v>)
+    (<v> ^task |scotty-main|)
+    (<w> ^object <ob1>
+         ^object <ob2>)
+    (<ob1> ^feature A
+           ^feature B
+           ^feature C
+           ^foo bar)
+    (<ob2> ^feature C
+           ^feature D
+           ^foo far)
+}
+

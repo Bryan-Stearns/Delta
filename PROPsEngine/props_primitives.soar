@@ -1,0 +1,340 @@
+#####    Author: Bryan Stearns, 2018-2019
+#   This code defines the primitive conditions and actions for a PROPs agent.
+#   Condition primitives are elaborations for satisfying instructed operator proposal conditions.
+#   Action primitives are application rules for applying those instructed operators.
+#
+##        OPERATORS
+#   (Primitives do not describe complete operators.)
+#   (SEE: props_elab-contexts.soar for the proposal of these instructed operators.)
+#   
+##        STRUCTURE
+#  (<s> ^elab-context (<pe>                 | A set of instructed proposals, fetched from SMEM
+#          [^delta (<d>                     | Corresponds to a proposable operator
+#               ^op-name <oname>            | The proposal's operator name
+#               ^prop-apply true            | A flag that indicates that this delta applies a parent operator; true if the flag exists
+#              [^prop (<prop>               | Corresponds to a single condition of the delta
+#                   ^name <pname>           | The name of the primitive
+#                   ^address1 <ts-attr1>    | A cached/provided attribute name from the topstate to find <id1>
+#                   ^address2 <ts-attr2>    | A cached/provided attribute name from the topstate to find <id2>
+#                   ^prop-type << ... >>    | The operation type
+#                   ^attr1 <attr1>          | The attribute for arg1
+#                   ^attr2 <attr2>)]        | The attribute for arg2
+#               ^cond-id1 (<dcid1>          | Generated: The result of finding the id referenced by <ts>.<ts-attr1>  (SEE: props_auto_addressing.soar)
+#                   ^name <pname>           | The name of the condition primitive that this address is for
+#                   ^id1 <id1>)             | The pointer to the specified address
+#               ^cond-id2 (<dcid2>          | Generated: The result of finding the id referenced by <ts>.<ts-attr2>
+#                   ^name <pname>           | The name of the condition primitive that this address is for
+#                   ^id2 <id2>)             | The pointer to the specified address
+#               ^cond-success <cname>)])    | Generated: Marks that the named condition primitive is true
+#       ^prop-apply-buffer (<b>             | The apply buffer. (SEE: props_apply_buffer.soar)
+#          [^apply (<ba>                    | A bundle of actions from a single operator
+#              [^delta-action (<da>         | A single primitive action within the bundle
+#                   ^name <pname>           | The name of the primitive used
+#                   ^prop-type <ptype>      | The type of the primitive used << add remove >>
+#                   ^id1 <id1>              | The WM id to elaborate onto 
+#                   ^attr1 <attr>           | The attribute of the augmentation to create on <id1>
+#                   ^val <val>)])]))        | The value to give the augmentation
+#####
+
+### PRELS: Primitive elaborations for proposals
+# Evaluate primitive conditions
+###
+
+sp {elaborate*props*elab-context*delta*cond*eq
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>
+         ^cond-id2 <cid2>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<cid2> ^name <cname>
+            ^id2 <id2>)
+    (<c> ^prop-type equality
+         ^name <cname>
+         ^attr1 <attr1>
+         ^attr2 <attr2>)
+    (<id1> ^<attr1> <val>)
+    (<id2> ^<attr2> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+sp {elaborate*props*elab-context*delta*cond*neq
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>
+         ^cond-id2 <cid2>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<cid2> ^name <cname>
+            ^id2 <id2>)
+    (<c> ^prop-type inequality
+         ^name <cname>
+         ^attr1 <attr1>
+         ^attr2 <attr2>)
+    (<id1> ^<attr1> <val>)
+    (<id2> ^<attr2> <> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+# NIL1 AND NIL2 SPECIAL CASE CONDITIONS: (okay because conditions not chunked)
+#sp {elaborate*props*elab-context*delta*cond*neq-nil1
+#    "If only the first arg is nil, treat as inequality"
+#    (state <s> ^elab-context.delta <d>)
+#    (<d> ^prop <c>
+#         ^cond-id1 <cid1>
+#         ^cond-id2 <cid2>)
+#    (<cid1> ^name <cname>
+#            ^id1 <id1>)
+#    (<cid2> ^name <cname>
+#            ^id2 <id2>)
+#    (<c> ^prop-type inequality
+#         ^name <cname>
+#         ^attr1 <attr1>
+#         ^attr2 <attr2>)
+#    (<id1> -^<attr1> )
+#    (<id2> ^<attr2> <val>)
+#-->
+#    (<d> ^cond-success <cname>)
+#}
+#sp {elaborate*props*elab-context*delta*cond*neq-nil2
+#    "If only the second arg is nil, treat as inequality"
+#    (state <s> ^elab-context.delta <d>)
+#    (<d> ^prop <c>
+#         ^cond-id1 <cid1>
+#         ^cond-id2 <cid2>)
+#    (<cid1> ^name <cname>
+#            ^id1 <id1>)
+#    (<cid2> ^name <cname>
+#            ^id2 <id2>)
+#    (<c> ^prop-type inequality
+#         ^name <cname>
+#         ^attr1 <attr1>
+#         ^attr2 <attr2>)
+#    (<id1> ^<attr1> <val>)
+#    (<id2> -^<attr2>)
+#-->
+#    (<d> ^cond-success <cname>)
+#}
+sp {elaborate*props*elab-context*delta*cond*teq
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>
+         ^cond-id2 <cid2>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<cid2> ^name <cname>
+            ^id2 <id2>)
+    (<c> ^prop-type type-equality
+         ^name <cname>
+         ^attr1 <attr1>
+         ^attr2 <attr2>)
+    (<id1> ^<attr1> <val>)
+    (<id2> ^<attr2> <=> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+sp {elaborate*props*elab-context*delta*cond*less
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>
+         ^cond-id2 <cid2>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<cid2> ^name <cname>
+            ^id2 <id2>)
+    (<c> ^prop-type less-than
+         ^name <cname>
+         ^attr1 <attr1>
+         ^attr2 <attr2>)
+    (<id1> ^<attr1> < <val>)
+    (<id2> ^<attr2> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+sp {elaborate*props*elab-context*delta*cond*greater
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>
+         ^cond-id2 <cid2>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<cid2> ^name <cname>
+            ^id2 <id2>)
+    (<c> ^prop-type greater-than
+         ^name <cname>
+         ^attr1 <attr1>
+         ^attr2 <attr2>)
+    (<id1> ^<attr1> > <val>)
+    (<id2> ^<attr2> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+sp {elaborate*props*elab-context*delta*cond*less-equal
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>
+         ^cond-id2 <cid2>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<cid2> ^name <cname>
+            ^id2 <id2>)
+    (<c> ^prop-type less-equal
+         ^name <cname>
+         ^attr1 <attr1>
+         ^attr2 <attr2>)
+    (<id1> ^<attr1> <= <val>)
+    (<id2> ^<attr2> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+sp {elaborate*props*elab-context*delta*cond*greater-equal
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>
+         ^cond-id2 <cid2>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<cid2> ^name <cname>
+            ^id2 <id2>)
+    (<c> ^prop-type greater-equal
+         ^name <cname>
+         ^attr1 <attr1>
+         ^attr2 <attr2>)
+    (<id1> ^<attr1> <= <val>)
+    (<id2> ^<attr2> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+#sp {elaborate*props*elab-context*delta*cond*inexistence
+#    (state <s> ^elab-context.delta <d>)
+#    (<d> ^prop <c>
+#         ^cond-id1 <cid1>)
+#    (<cid1> ^name <cname>
+#            ^id1 <id1>)
+#    (<c> ^prop-type inexistence
+#         ^name <cname>
+#         ^attr1 <attr1>)
+#    (<id1> -^<attr1> <val>)
+#-->
+#    (<d> ^cond-success <cname>)
+#}
+sp {elaborate*props*elab-context*delta*cond*inexistence
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>
+         ^cond-id2 <cid2>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<cid2> ^name <cname>
+            ^id2 <id2>)
+    (<c> ^prop-type inexistence
+         ^name <cname>
+         ^attr1 <attr1>
+         ^attr2 <attr2>)
+    (<id1> -^<attr1> <val>)    # The particular value does not exist under the first arg
+    (<id2> ^<attr2> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+sp {elaborate*props*elab-context*delta*cond*negation
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<c> ^prop-type << negation inexistence >>  # Negation also satisfies inexistence
+         ^name <cname>
+         ^attr1 <attr1>)
+    (<id1> -^<attr1> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+sp {elaborate*props*elab-context*delta*cond*existence
+    (state <s> ^elab-context.delta <d>)
+    (<d> ^prop <c>
+         ^cond-id1 <cid1>)
+    (<cid1> ^name <cname>
+            ^id1 <id1>)
+    (<c> ^prop-type existence
+         ^name <cname>
+         ^attr1 <attr1>)
+    (<id1> ^<attr1> <val>)
+-->
+    (<d> ^cond-success <cname>)
+}
+
+
+# ACTION CONDITIONS:
+sp {elaborate*props*elab-context*delta*action*available
+    "The proposal condition for actions is that they are not yet on the return buffer."
+    (state <s> ^elab-context.delta <d>
+               ^prop-apply-buffer <b>)
+    (<b> -^apply.delta-action.name <cname>)
+    (<d> ^prop-apply 
+         ^prop <c>)
+    (<c> ^name <cname>)
+-->
+    (<d> ^cond-success <cname>)
+}
+
+
+
+### PROPS: Primitive operator applications
+# Apply primitive actions
+###
+
+sp {apply*props*add
+    (state <s> ^apply-context.delta <d>
+               ^prop-working-buffer.apply <ba>)
+    (<d> ^prop <a>
+         ^cond-id1 (^id1 <id1> ^name <pname> )
+         ^cond-id2 (^id2 <id2> ^name <pname> ) )
+    (<a> ^prop-type add
+         ^name <pname>
+         ^attr1 <attr1>
+         ^attr2 <attr2>)
+    (<id2> ^<attr2> <val>)
+-->
+    (<ba> ^delta-action <dnew>)
+    (<dnew> ^prop-type add
+            ^name <pname>
+            ^id1 <id1>
+            ^attr1 <attr1>
+            ^val <val>)
+}
+# ADD-NIL BEHAVIOR: REMOVED BECAUSE IS DIFF RESPONSE TO INSTRUCTIONS AND PREVENTS CHUNK TRANSFER
+#sp {apply*props*add-nil
+#    "If copying from a source that does not exist, treat as a remove command."
+#    (state <s> ^apply-context.delta <d>
+#               ^prop-working-buffer.apply <ba>)
+#    (<d> ^prop <a>
+#         ^cond-id1 (^id1 <id1> ^name <pname> )
+#         ^cond-id2 (^id2 <id2> ^name <pname> ) )
+#    (<a> ^prop-type add
+#         ^name <pname>
+#         ^attr1 <attr1>
+#         ^attr2 <attr2>)
+#    (<id2> -^<attr2> <val>)
+#-->
+#    (<ba> ^delta-action <dnew>)
+#    (<dnew> ^prop-type remove
+#            ^name <pname>
+#            ^id1 <id1>
+#            ^attr1 <attr1>)
+#}
+sp {apply*props*remove
+    (state <s> ^apply-context.delta <d>
+               ^prop-working-buffer.apply <ba>)
+    (<d> ^prop <a>
+         ^cond-id1 (^id1 <id1> ^name <pname> ) )
+    (<a> ^prop-type remove
+         ^name <pname>
+         #^id1 <id1>
+         ^attr1 <attr1>)
+-->
+    (<ba> ^delta-action <dnew>)
+    (<dnew> ^prop-type remove
+            ^name <pname>
+            ^id1 <id1>
+            ^attr1 <attr1>)
+}

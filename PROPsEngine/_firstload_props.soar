@@ -1,0 +1,76 @@
+#soar wait-snc on
+
+chunk only
+chunk add-ltm-links on
+chunk add-osk off
+
+chunk confidence-threshold 1
+
+#explain all on
+#explain justifications on
+#vis color on
+
+#watch --learn 2
+#watch --learning print
+#watch --backtracing
+
+#decide set-random-seed 42
+
+#smem --set activation-mode base-level
+#smem --set base-update-policy naive
+#smem --set base-decay 0.9
+##smem --set base-inhibition on
+#smem --set activate-on-query off
+
+#smem --set spreading-continue-probability 0.95
+#smem --set spreading-limit 300
+#smem --set spreading-depth-limit 1 # 3
+##smem --set spreading-loop-avoidance on
+#smem --set spreading on
+#smem --set learning on
+smem --enable
+
+output callbacks on
+output console on
+
+source props_elab_contexts.soar
+source props_primitives.soar
+source props_apply_buffer.soar
+source props_auto_addressing.soar
+#source props_rl.soar
+#source props_prohibit_list.soar
+
+multi-attributes condition 4
+multi-attributes action 4
+multi-attributes prop 3
+multi-attributes prop-type 2
+multi-attributes source 2
+multi-attributes prop-link 5
+multi-attributes prop-ltm 5
+multi-attributes propose 6
+
+#chunk singleton state literalize constant
+#chunk singleton identifier condition constant
+#chunk singleton identifier action constant
+#chunk singleton identifier prop identifier
+chunk singleton state const identifier
+#chunk singleton identifier prop-count constant
+chunk singleton identifier name constant
+#chunk singleton identifier propose identifier
+#chunk singleton state props-buffer identifier
+chunk singleton operator items identifier
+chunk singleton operator delta identifier
+chunk singleton identifier prop-type constant
+chunk singleton identifier id1 identifier
+chunk singleton identifier id2 identifier
+chunk singleton identifier attr1 constant
+chunk singleton identifier attr2 constant
+chunk singleton identifier lti-name constant
+chunk singleton state rootstate state
+chunk singleton identifier 1 constant
+chunk singleton identifier 2 constant
+chunk singleton identifier 3 constant
+chunk singleton identifier 4 constant
+chunk singleton operator name constant
+chunk singleton identifier io identifier
+

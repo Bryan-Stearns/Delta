@@ -1,0 +1,32 @@
+(problem-space recommend-cheese
+	(ins do-cheddar
+		(ref (s1 wm <wm>) (<wm> object <ob1>) (<wm> object <ob2>))
+		(condition (== <ob1> feature <ob2> feature) (<> <ob1> foo <ob2> foo))
+		(operator "recommend-cheddar")
+		(description "Trigger premade action from substate")
+	)
+	(ins do-swiss
+		(ref (s1 wm <wm>) (<wm> object <ob1>) (<wm> object <ob2>))
+		(condition (== <ob1> feature <ob2> herring))
+		(operator "recommend-swiss")
+		(description "Trigger premade action from substate")
+	)
+)
+
+(problem-space scotty-main
+	(ins do-tofu
+		(ref (s1 wm.object <ob>))	; This is a comment
+		(condition (== <ob> feature const A) (== <ob> feature const B))
+		(operator "recommend-tofu")
+		(description "If one object with both features A and B, trigger premade action"))
+	(ins do-cheese
+		(ref (s1 wm.object <ob>))
+		(condition (== <ob> feature const C) (== <ob> feature const D))
+		(operator "recommend-cheese")
+		(description "If one object with both features C and D, trigger deeper problem space"))
+	(ins do-fail
+		(ref (s1 wm.object <ob>))
+		(condition (== <ob> feature const A) (== <ob> feature const C))
+		(operator "recommend-failure")
+		(description "Test: Shouldn't get satisfied in test environment"))
+)

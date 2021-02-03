@@ -1,0 +1,52 @@
+#############################################################################
+# THIS FILE TRANSLATES INSTRUCTIONS INTO SMEM FORMAT FOR A SOAR PROPS AGENT #
+#############################################################################
+
+smem --add {
+
+###
+# RECOMMEND-CHEESE
+###
+(<elab-context-312714112> ^elab-context-name |recommend-cheese|
+	^delta <drule-692404036> 
+	^delta <drule-1554874502> ) 
+
+(<drule-692404036> ^op-name |recommend-cheddar|
+	^const <Q1> 
+(<drule-1554874502> ^op-name |recommend-swiss|
+	^const <Q1> 
+###
+# SCOTTY-MAIN
+###
+(<elab-context-1625635731> ^elab-context-name |scotty-main|
+	^delta <drule-1580066828> 
+	^delta <drule-491044090> 
+	^delta <drule-644117698> ) 
+
+(<drule-1580066828> ^op-name |recommend-tofu|
+	^const <Q3042> (<Q3042> 
+	^0 A
+	^1 B)
+
+(<drule-491044090> ^op-name |recommend-cheese|
+	^const <Q3106> (<Q3106> 
+	^0 C
+	^1 D)
+
+(<drule-644117698> ^op-name |recommend-failure|
+	^const <Q3043> (<Q3043> 
+	^0 A
+	^1 C)
+
+#########################################
+
+###
+# Prims:
+###
+
+###
+# Addresses:
+###
+
+}
+

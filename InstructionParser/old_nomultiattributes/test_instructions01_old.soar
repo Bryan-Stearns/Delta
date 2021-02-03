@@ -1,0 +1,206 @@
+#############################################################################
+# THIS FILE TRANSLATES INSTRUCTIONS INTO SMEM FORMAT FOR A SOAR PROPS AGENT #
+#############################################################################
+
+smem --add {
+
+###
+# SCOTTY-MAIN
+###
+(<elab-context-692404036> ^elab-context-name |scotty-main|
+	^delta <drule-1554874502> 
+	^delta <drule-1846274136> 
+	^delta <drule-1639705018> ) 
+
+(<drule-1554874502> ^op-name |recommend-tofu|
+	^const <Q3042> 
+	^prop <prop-C1627674070> 
+	^prop <prop-C1360875712> )
+(<Q3042> 
+	^0 A
+	^1 B)
+(<Ref-1625635731> ^name |<ob>|
+	^address <AddrStep-325040804>)
+
+(<drule-1846274136> ^op-name |recommend-cheese|
+	^const <Q3106> 
+	^prop <prop-C1580066828> 
+	^prop <prop-C491044090> )
+(<Q3106> 
+	^0 C
+	^1 D)
+(<Ref-644117698> ^name |<ob>|
+	^address <AddrStep-1173230247>)
+
+(<drule-1639705018> ^op-name |recommend-failure|
+	^const <Q3043> 
+	^prop <prop-C1872034366> 
+	^prop <prop-C1581781576> )
+(<Q3043> 
+	^0 A
+	^1 C)
+(<Ref-1725154839> ^name |<ob>|
+	^address <AddrStep-856419764>)
+
+###
+# RECOMMEND-CHEESE
+###
+(<elab-context-1670675563> ^elab-context-name |recommend-cheese|
+	^delta <drule-723074861> 
+	^delta <drule-895328852> ) 
+
+(<drule-723074861> ^op-name |recommend-cheddar|
+	^const <Q1> 
+	^prop <prop-C1304836502> 
+	^prop <prop-C225534817> )
+(<Ref-1878246837> ^name |<ob1>|
+	^address <AddrStep-621009875>)
+(<Ref-929338653> ^name |<ob2>|
+	^address <AddrStep-1265094477>)
+
+(<drule-895328852> ^op-name |recommend-swiss|
+	^const <Q1> 
+	^prop <prop-C1259475182> )
+(<Ref-1300109446> ^name |<ob1>|
+	^address <AddrStep-2125039532>)
+(<Ref-1020371697> ^name |<ob2>|
+	^address <AddrStep-312714112>)
+
+#########################################
+
+###
+# Prims:
+###
+
+(<prop-C1627674070> ^name |_PC1627674070|
+	^prop-type equality
+	^attr1 feature
+	^address1 <Addr-325040804>
+	^attr2 0
+	^address2 props$const) 
+
+(<prop-C1360875712> ^name |_PC1360875712|
+	^prop-type equality
+	^attr1 feature
+	^address1 <Addr-325040804>
+	^attr2 1
+	^address2 props$const) 
+
+(<prop-C1580066828> ^name |_PC1580066828|
+	^prop-type equality
+	^attr1 feature
+	^address1 <Addr-1173230247>
+	^attr2 0
+	^address2 props$const) 
+
+(<prop-C491044090> ^name |_PC491044090|
+	^prop-type equality
+	^attr1 feature
+	^address1 <Addr-1173230247>
+	^attr2 1
+	^address2 props$const) 
+
+(<prop-C1872034366> ^name |_PC1872034366|
+	^prop-type equality
+	^attr1 feature
+	^address1 <Addr-856419764>
+	^attr2 0
+	^address2 props$const) 
+
+(<prop-C1581781576> ^name |_PC1581781576|
+	^prop-type equality
+	^attr1 feature
+	^address1 <Addr-856419764>
+	^attr2 1
+	^address2 props$const) 
+
+(<prop-C1304836502> ^name |_PC1304836502|
+	^prop-type equality
+	^attr1 feature
+	^address1 <Addr-621009875>
+	^attr2 feature
+	^address2 <Addr-1265094477>) 
+
+(<prop-C225534817> ^name |_PC225534817|
+	^prop-type inequality
+	^attr1 foo
+	^address1 <Addr-621009875>
+	^attr2 foo
+	^address2 <Addr-1265094477>) 
+
+(<prop-C1259475182> ^name |_PC1259475182|
+	^prop-type equality
+	^attr1 feature
+	^address1 <Addr-2125039532>
+	^attr2 herring
+	^address2 <Addr-312714112>) 
+
+###
+# Addresses:
+###
+
+(<Addr-325040804> ^size 2
+	^step <AddrStep-325040804-1>
+	^step <AddrStep-325040804-2>
+	^final <AddrStep-325040804-2>) 
+(<AddrStep-325040804-1> ^prev props$rootstate
+	^attribute wm) 
+(<AddrStep-325040804-2> ^prev <AddrStep-325040804-1>
+	^attribute object) 
+
+(<Addr-1173230247> ^size 2
+	^step <AddrStep-1173230247-1>
+	^step <AddrStep-1173230247-2>
+	^final <AddrStep-1173230247-2>) 
+(<AddrStep-1173230247-1> ^prev props$rootstate
+	^attribute wm) 
+(<AddrStep-1173230247-2> ^prev <AddrStep-1173230247-1>
+	^attribute object) 
+
+(<Addr-856419764> ^size 2
+	^step <AddrStep-856419764-1>
+	^step <AddrStep-856419764-2>
+	^final <AddrStep-856419764-2>) 
+(<AddrStep-856419764-1> ^prev props$rootstate
+	^attribute wm) 
+(<AddrStep-856419764-2> ^prev <AddrStep-856419764-1>
+	^attribute object) 
+
+(<Addr-621009875> ^size 2
+	^step <AddrStep-621009875-1>
+	^step <AddrStep-621009875-2>
+	^final <AddrStep-621009875-2>) 
+(<AddrStep-621009875-1> ^prev props$rootstate
+	^attribute wm) 
+(<AddrStep-621009875-2> ^prev <AddrStep-621009875-1>
+	^attribute object) 
+
+(<Addr-1265094477> ^size 2
+	^step <AddrStep-1265094477-1>
+	^step <AddrStep-1265094477-2>
+	^final <AddrStep-1265094477-2>) 
+(<AddrStep-1265094477-1> ^prev props$rootstate
+	^attribute wm) 
+(<AddrStep-1265094477-2> ^prev <AddrStep-1265094477-1>
+	^attribute object) 
+
+(<Addr-2125039532> ^size 2
+	^step <AddrStep-2125039532-1>
+	^step <AddrStep-2125039532-2>
+	^final <AddrStep-2125039532-2>) 
+(<AddrStep-2125039532-1> ^prev props$rootstate
+	^attribute wm) 
+(<AddrStep-2125039532-2> ^prev <AddrStep-2125039532-1>
+	^attribute object) 
+
+(<Addr-312714112> ^size 2
+	^step <AddrStep-312714112-1>
+	^step <AddrStep-312714112-2>
+	^final <AddrStep-312714112-2>) 
+(<AddrStep-312714112-1> ^prev props$rootstate
+	^attribute wm) 
+(<AddrStep-312714112-2> ^prev <AddrStep-312714112-1>
+	^attribute object) 
+
+}
+

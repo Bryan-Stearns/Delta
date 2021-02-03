@@ -1,0 +1,171 @@
+#####    Author: Bryan Stearns, 2018-2019
+#   This code looks for addresses of instructed primitives on the topstate,
+#   and automatically elaborates the pointers to those addresses if they can be found there.  
+#
+##        OPERATORS
+#   (There are no operators. Addresses are elaborated in the background.)
+#   
+##        STRUCTURE
+#  (<s> ^topstate <ts>                      | The topstate pointer, elaborated to all states
+#       ^const <c>                          | The object containing task-specific literals for a delta, elaborated here once the delta is selected
+#       ^<< elab-context apply-context >> (<pe>                  | A set of instructed proposals, fetched from SMEM
+#          [^delta (<d>                     | Corresponds to a proposable operator
+#               ^const <dc>                 | If this exists, this delta is for a specific task-specific operator proposal.
+#              [^prop (<prop>               | Corresponds to a single condition of the delta
+#                   ^name <cname>           | The name of the primitive
+#                   ^address1 (<ref1>       | A reference object detailing the chain of attributes leading to an ID
+#                       ^step (<rstep>      | An object describing a single attribute step in the reference chain
+#                          ^prev <prev>     | The previous step object in the chain, or |props$rootstate| if at the start
+#                          ^attribute <a>)) | The attribute name for this step in the chain
+#                   ^address2 <ref2>)]      | A reference object detailing the chain of attributes leading to an ID, same structure as <ref1>
+#              [^cond-id1 (<dcid1>          | Generated: The result of finding the id referenced by <ts>.<ts-attr1>
+#                   ^name <cname>           | The name of the condition prop that this address is for
+#                   ^id1 <id1>)]            | The pointer to the specified address
+#              [^cond-id2 (<dcid2>          | Generated: The result of finding the id referenced by <ts>.<ts-attr2>
+#                   ^name <cname>           | The name of the condition prop that this address is for
+#                   ^id2 <id2>)]            | The pointer to the specified address
+#              [^missing <what>])]))        | Generated: Where <what> is << |id1| |id2| >>. Created if the id couldn't be found in WM.
+#####
+
+sp {elaborate*props*address*first-step
+    "Start address resolution with the state ID"
+    (state <s> ^<< elab-context apply-context >> (^delta <d> )
+               ^topstate <ts>)
+    (<d> ^prop.<< address1 address2 >> <ref>)
+    (<ref> ^step <refstep>)
+    (<refstep> ^prev |props$rootstate|
+               ^attribute <attr>)
+    (<ts> ^<attr> <val>)
+-->
+    (<refstep> ^val <val>)
+}
+
+sp {elaborate*props*address*step
+    "Iterate through the attribute chain: fire when the prev ref has been resolved"
+    (state <s> ^<< elab-context apply-context >> (^delta <d> ))
+    (<d> ^prop.<< address1 address2 >> <ref>)
+    (<ref> ^step <refstep>)
+    (<refstep> ^prev.val <val-prev>
+               ^attribute <attr>)
+    (<val-prev> ^<attr> <val>)
+-->
+    (<refstep> ^val <val>)
+}
+
+sp {elaborate*props*address1*missing-first
+    "If the first arg1 link off the topstate doesnt exist, mark id1 as missing."
+    (state <s> ^<< elab-context apply-context >> (^delta <d> )
+               ^topstate <ts>)
+    (<d> ^prop.address1.step <refstep>)
+    (<refstep> ^prev |props$rootstate|
+               ^attribute <attr>)
+   -(<ts> ^<attr> <val>)
+-->
+    (<d> ^missing |id1|)
+}
+sp {elaborate*props*address2*missing-first
+    "If the first arg2 link off the topstate doesnt exist, mark id2 as missing."
+    (state <s> ^<< elab-context apply-context >> (^delta <d> )
+               ^topstate <ts>)
+    (<d> ^prop.address2.step <refstep>)
+    (<refstep> ^prev |props$rootstate|
+               ^attribute <attr>)
+   -(<ts> ^<attr> <val>)
+-->
+    (<d> ^missing |id2|)
+}
+sp {elaborate*props*address1*missing
+    "If a link inside the arg1 chain doesnt exist, mark id1 as missing."
+    (state <s> ^<< elab-context apply-context >> (^delta <d> ))
+    (<d> ^prop.address1.step <refstep>)
+    (<refstep> ^prev.val <val-prev>
+               ^attribute <attr>)
+   -(<val-prev> ^<attr> <val>)
+-->
+    (<d> ^missing |id1|)
+}
+sp {elaborate*props*address2*missing
+    "If a link inside the arg2 chain doesnt exist, mark id2 as missing."
+    (state <s> ^<< elab-context apply-context >> (^delta <d> ))
+    (<d> ^prop.address2.step <refstep>)
+    (<refstep> ^prev.val <val-prev>
+               ^attribute <attr>)
+   -(<val-prev> ^<attr> <val>)
+-->
+    (<d> ^missing |id2|)
+}
+
+sp {elaborate*props*address1*final-val
+    "If the arg1 elaboration chain is complete, create the result for other processes"
+    (state <s> ^<< elab-context apply-context >> (^delta <d> ))
+    (<d> ^prop <c>)
+    (<c> ^address1.final.val <val>
+         ^name <cname>)
+-->
+    (<d> ^cond-id1 <dcid>)
+    (<dcid> ^name <cname>
+            ^id1 <val>)
+}
+
+sp {elaborate*props*address2*final-val
+    "If the arg2 elaboration chain is complete, create the result for other processes"
+    (state <s> ^<< elab-context apply-context >> (^delta <d> ))
+    (<d> ^prop <c>)
+    (<c> ^address2.final.val <val>
+         ^name <cname>)
+-->
+    (<d> ^cond-id2 <dcid>)
+    (<dcid> ^name <cname>
+            ^id2 <val>)
+}
+
+sp {elaborate*props*address2*cond-const
+    "If arg2 references a const for an elab context, link directly to this contexts consts."
+    (state <s> ^<< elab-context apply-context >> (^delta <d> ) )
+    (<d> ^const <dc>
+         ^prop <c>)
+    (<c> ^address2 |props$const|
+         ^name <cname>)
+-->
+    (<d> ^cond-id2 <dcid>)
+    (<dcid> ^name <cname>
+            ^id2 <dc>)
+}
+sp {elaborate*props*address2*act-const
+    "If arg2 references a const for a value context, link directly to this contexts consts."
+    (state <s> ^<< elab-context apply-context >> ( ^delta <d>)
+               ^const <dc>)
+    (<d> ^prop <c>)
+    (<c> ^address2 |props$const|
+         ^name <cname>)
+-->
+    (<d> ^cond-id2 <dcid>)
+    (<dcid> ^name <cname>
+            ^id2 <dc>)
+}
+
+sp {elaborate*props*address1*rootstate
+    "If arg1 references the state, link directly to the topstate."
+    (state <s> ^<< elab-context apply-context >> ( ^delta <d>)
+               ^topstate <ts>)
+    (<d> ^prop <c>)
+    (<c> ^address1 |props$rootstate|
+         ^name <cname>)
+-->
+    (<d> ^cond-id1 <dcid>)
+    (<dcid> ^name <cname>
+            ^id1 <ts>)
+}
+sp {elaborate*props*address2*rootstate
+    "If arg2 references the state, link directly to the topstate."
+    (state <s> ^<< elab-context apply-context >> ( ^delta <d>)
+               ^topstate <ts>)
+    (<d> ^prop <c>)
+    (<c> ^address2 |props$rootstate|
+         ^name <cname>)
+-->
+    (<d> ^cond-id2 <dcid>)
+    (<dcid> ^name <cname>
+            ^id2 <ts>)
+}
+

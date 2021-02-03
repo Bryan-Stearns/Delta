@@ -1,0 +1,581 @@
+#####    Author: Bryan Stearns, 2018-2019
+#   This code enables the use of elaboration contexts to guide instruction retrievals.
+#   If sourced, the agent will load an elab-context (set of deltas / instructions / WM transition descriptions) to match the current task context.
+#   This assumes a G.Gtask structure on the topstate, according to the Actransfer model.
+#
+##        OPERATORS
+#   props-load-elab-context                 | Load a set of deltas for the task
+#   props-retrieve-elab-context             | Collect the smem retrieval results
+#   <instructed-operator>                   | Propose any operators described by fetched elab-context instructions
+#   elab-context-return                     | Return apply-buffer actions up to the superstate's apply-buffer
+#   
+##        STRUCTURE
+#  (<s> ^V.task <taskname>                  | The source of the elab-context name (task context)
+#       ^topstate <ts>                      | The topstate pointer, elaborated to all states
+#       ^const <c>                          | The object containing task-specific literals for a delta, elaborated here once the delta is selected
+#       ^elab-context (<pe>                 | A set of instructed proposals, fetched from SMEM
+#           ^elab-context-name <name>       | The unique identifier of this elab-context, usable for queries
+#           ^const <c>                      | If this exists, this elab-context collects the general apply operators for a task-specific superstate operator
+#          [^delta (<d>                     | Corresponds to a proposable operator
+#               ^op-name <name>             | The proposal's operator name
+#               ^prop-apply true            | A flag that indicates that this delta applies a parent operator; true if the flag exists
+#               ^const <dc>                 | If this exists, this delta is for a specific task-specific operator proposal.
+#              [^item-name <pname>]         | There will be one entry for every primitive action descended from this proposable operator in the hierarchy
+#              [^prop (<prop>               | Corresponds to a single condition of the delta
+#                   ^name <cname>           | The name of the primitive
+#                   ^address1 <ts-attr1>    | A cached/provided attribute name from the topstate to find <id1>
+#                   ^address2 <ts-attr2>    | A cached/provided attribute name from the topstate to find <id2>
+#                   ^prop-type << ... >>    | The operation type
+#                   ^attr1 <attr1>          | The attribute for arg1
+#                   ^attr2 <attr2>)]        | The attribute for arg2
+#               ^cond-id1 (<dcid1>          | Generated: The result of finding the id referenced by <ts>.<ts-attr1>  (SEE: props_auto_addressing.soar)
+#                   ^name <cname>           | The name of the condition prop that this address is for
+#                   ^id1 <id1>)             | The pointer to the specified address
+#               ^cond-id2 (<dcid2>          | Generated: The result of finding the id referenced by <ts>.<ts-attr2>
+#                   ^name <cname>           | The name of the condition prop that this address is for
+#                   ^id2 <id2>)             | The pointer to the specified address
+#               ^missing <what>]))          | Generated: Where <what> is << |id1| |id2| >>. Created if the id couldn't be found in WM.
+#       ^prop-apply-buffer (<b>             | The apply buffer. (SEE: props_apply_buffer.soar)
+#          [^apply (<ba>                    | A bundle of actions from a single operator
+#              [^delta-action (<da>         | A single primitive action within the bundle
+#                   ^name <name>)])]))      | The name of the primitive used
+#####
+
+
+# PROPAGATE THE TOPSTATE
+sp {elaborate*topstate
+    (state <s> ^superstate nil)
+-->
+    (<s> ^topstate <s>)
+}
+sp {elaborate*rootstate*cascade
+    (state <s> ^superstate.topstate <ts>)
+-->
+    (<s> ^topstate <ts>)
+}
+
+# INHERIT CONST STRUCTS FROM SUPERSTATE elab-contextS
+sp {elaborate*elab-context*consts
+    # Need to access consts in state the same way regardless of whether consts come from local elab-context or superstate elab-context, so that chunks will transfer
+    (state <s> ^elab-context.const <c>
+               ^superstate.pre-action-state <ss>)
+-->
+    (<s> ^const <c>
+         ^pre-action-state <ss>)
+}
+sp {elaborate*superstate*consts
+    (state <s> ^superstate <ss>)
+    (<ss> ^const <c>
+          ^pre-action-state <pas>)
+-->
+    (<s> ^const <c>
+         ^pre-action-state <pas>)
+}
+
+sp {elaborate*elab-context*pre-action-state
+    (state <s> ^type state
+               -^const <c>)
+-->
+    (<s> ^pre-action-state <s>)
+}
+
+
+# MARK WHEN A DELTA'S CONDITIONS ARE ALL TRUE
+sp {elaborate*props*delta*conditions*all-true
+    (state <s> ^elab-context <pe>)
+    (<pe> ^delta <d>)
+    (<d> -^prop-apply)    # Only for conditions
+    -{(<d> ^prop <p>
+          -^cond-success <cname>)
+      (<p> -^prop-type << add remove >>
+            ^name <cname>)} # It is not the case that this delta has untrue conditions
+-->
+    (<d> ^all-conds-true true)
+}
+
+
+### OPERATOR ### 
+# props-load-elab-context
+##
+# Fetch instructions for a set of operator proposals
+### 
+
+sp {propose*props*eval*query*elab-context*topstate
+    "Load an elab-context to bias fetching for the task"
+    (state <s> ^V.task {<task> <> finish}    # Finish triggers interface response
+               ^superstate nil
+              -^smem.result.<< retrieved failure >>
+              -^elab-context.elab-context-name <task>)
+-->
+    (<s> ^operator <o> + >)
+    (<o> ^name props-load-elab-context
+         ^elab-context-name <task>)        # Remove this line for free elab-context retrievals (should then prohibit used elab-contexts for a time though)
+}
+sp {propose*props*eval*query*elab-context*substate*apply-known
+    "Load an elab-context to apply a parent delta (operator)"
+    (state <s> ^superstate.operator <oo>
+               ^impasse no-change
+               ^attribute operator
+              -^const     # If the superstate elab-context had a const, it'd be proposing cbsets
+              -^smem.result.<< retrieved failure >>
+              -^elab-context)
+    (<oo> ^delta #.apply-name <name>
+         ^name <name>)
+-->
+    (<s> ^operator <o> + >)
+    (<o> ^name props-load-elab-context
+         ^elab-context-name <name>)        # Remove this line for free elab-context retrievals (should then prohibit used elab-contexts for a time though)
+}
+#sp {propose*props*eval*query*elab-context*substate*apply-unknown
+#    "Load an elab-context to apply a parent delta (operator)"
+#    (state <s> ^superstate.operator <oo>
+#               ^impasse no-change
+#               ^attribute operator
+#              -^const     # If the superstate elab-context had a const, it'd be proposing cbsets
+#              -^smem.result.<< retrieved failure >>
+#              -^elab-context)
+#    (<oo> ^delta <d>
+#         ^name <name>)
+#    (<d> -^apply-name <name>)
+#-->
+#    (<s> ^operator <o> + >)
+#    (<o> ^name props-load-elab-context)
+#}
+
+sp {apply*props*eval*query*elab-context*task-named
+    (state <s> ^operator <o>
+               ^smem.command <scmd>)
+    (<o> ^name props-load-elab-context
+         ^elab-context-name <name>)
+-->
+    (<scmd> ^query <q>
+            ^depth 5)    # Retrieve down to elab-context.delta.prop.address1.step for condition details
+    (<q> ^elab-context-name <name>)
+}
+sp {apply*props*eval*query*elab-context*task-unnamed
+    (state <s> ^operator <o>
+               ^smem.command <scmd>)
+    (<o> ^name props-load-elab-context
+         -^elab-context-name <name>)
+-->
+    (<scmd> ^query <q>
+            ^depth 5)    # Retrieve down to elab-context.delta.prop.address1.step for condition details
+    (<q> ^elab-context-name <any>)
+}
+
+
+### OPERATOR ### 
+# props-retrieve-elab-context
+##
+# Pull the query result
+### 
+
+sp {propose*props*retrieve-elab-context
+    (state <s> ^smem.result.retrieved <e>
+               #^superstate nil
+              -^elab-context.elab-context-name <name>)
+    (<e> ^elab-context-name <name>)
+-->
+    (<s> ^operator <o> + >)
+    (<o> ^name props-retrieve-elab-context)
+    #(force-learn <s>)
+}
+
+sp {elaborate*props*retrieve-elab-context*failure
+    (state <s> ^smem.result.failure <q>
+               ^topstate.io.output-link <ol>)
+    (<q> ^elab-context-name )
+-->
+    (<ol> ^error <e>)
+    (<e> ^msg |RETRIEVAL FAILED| )
+    (write |RETRIEVAL FAILED| (crlf) )
+    (cmd print -fc)
+    (interrupt)
+}
+
+sp {apply*props*retrieve-elab-context*success*topstate
+    (state <s> ^operator.name props-retrieve-elab-context
+               ^superstate nil
+               ^smem <smem>
+              -^elab-context)
+    (<smem> ^command <scmd>
+           ^result.retrieved <e>)
+    (<scmd> ^query <q>)
+-->
+    (<s> ^elab-context <e>)
+    (<scmd> ^query <q> -)
+}
+sp {apply*props*retrieve-elab-context*success*topstate*replace
+    (state <s> ^operator.name props-retrieve-elab-context
+               ^superstate nil
+               ^smem <smem>
+               ^elab-context <eold>)
+    (<smem> ^command <scmd>
+           ^result.retrieved {<e> <> <eold>})
+    (<scmd> ^query <q>)
+-->
+    (<s> ^elab-context <eold> -
+         ^elab-context <e>)
+    (<scmd> ^query <q> -)
+}
+sp {apply*props*retrieve-elab-context*success*new
+    (state <s> ^operator.name props-retrieve-elab-context
+               ^superstate.operator.name <name>
+               ^smem <smem>
+              -^elab-context)
+    (<smem> ^command <scmd>
+           ^result.retrieved <e>)
+    (<scmd> ^query <q>)
+    (<e> ^elab-context-name <name>)
+-->
+    (<s> ^elab-context <e>)
+    (<scmd> ^query <q> -)
+}
+sp {apply*props*retrieve-elab-context*success*replace
+    (state <s> ^operator.name props-retrieve-elab-context
+               ^superstate.operator.name <name>
+               ^smem <smem>
+               ^elab-context <eold>)
+    (<smem> ^command <scmd>
+           ^result.retrieved {<e> <> <eold>})
+    (<scmd> ^query <q>)
+    (<e> ^elab-context-name <name>)
+-->
+    (<s> ^elab-context <eold> -
+         ^elab-context <e>)
+    (<scmd> ^query <q> -)
+}
+
+#sp {apply*props*retrieve-elab-context*success*learn-apply-name
+#    (state <s> ^operator.name props-retrieve-elab-context
+#               ^superstate.elab-context.delta <d>
+#               ^smem.result.retrieved.elab-context-name <name>)
+#    (<d> ^op-name <name>
+#         ^all-conds-true true)
+#-->
+#    (<d> ^apply-name <name>)
+#}
+
+sp {apply*props*retrieve-elab-context*mismatch
+    (state <s> ^superstate <ss>
+               ^impasse no-change
+               ^attribute operator)
+    (<ss> ^operator.name props-retrieve-elab-context
+          ^smem <ssmem>)
+    (<ssmem> ^command <scmd>
+           ^result.retrieved <e>
+           ^inhibit-list <pl>)
+    (<scmd> ^query <q>)
+-->
+    (<scmd> ^query <q> -)
+    (<pl> ^inhibit <e>)
+}
+
+
+### OPERATOR ### 
+# props-load-cbset
+##
+# Fetch instructions for applying a superstate operator
+###
+
+sp {propose*props*eval*query*cbset*substate
+    "Load an elab-context to apply a parent delta (operator)"
+    (state <s> ^superstate <ss>
+               ^impasse no-change
+               ^attribute operator
+              -^smem.result.<< retrieved failure >>
+              -^apply-context)
+    (<ss> ^operator <oo>
+          ^const)     # If the superstate elab-context had a const, it is proposing cbsets
+    (<oo> ^delta 
+         ^name <name>)
+-->
+    (<s> ^operator <o> + >)
+    (<o> ^name props-load-cbset
+         ^cbset-name <name>)        # Remove this line for free elab-context retrievals (should then prohibit used elab-contexts for a time though)
+}
+
+sp {apply*props*eval*query*cbset*task-named
+    (state <s> ^operator <o>
+               ^smem.command <scmd>)
+    (<o> ^name props-load-cbset
+         ^cbset-name <name>)
+-->
+    (<scmd> ^query <q>
+            ^depth 5)    # Retrieve down to elab-context.delta.prop.address1.step for condition details
+    (<q> ^apply-context-name <name>)
+}
+
+### OPERATOR ### 
+# props-retrieve-cbset
+##
+# Pull the query result
+### 
+
+sp {propose*props*retrieve-cbset
+    (state <s> ^smem.result.retrieved <e>
+               ^superstate <> nil
+              -^apply-context.apply-context-name <name>)
+    (<e> ^apply-context-name <name>)
+-->
+    (<s> ^operator <o> + >)
+    (<o> ^name props-retrieve-cbset)
+}
+
+#sp {elaborate*props*retrieve-cbset*failure
+#    (state <s> ^smem.result.failure <q>
+#               ^topstate.io.output-link <ol>)
+#    (<q> ^apply-context-name )
+#-->
+#    (<ol> ^error <e>)
+#    (<e> ^msg |CBSET RETRIEVAL FAILED| )
+#    (write |CBSET RETRIEVAL FAILED| (crlf) )
+#    (interrupt)
+#}  # Redundant while elab-contexts and cbsets retrieved the same way
+
+sp {apply*props*retrieve-cbset*success*new
+    (state <s> ^operator.name props-retrieve-cbset
+               ^smem <smem>
+              -^apply-context)
+    (<smem> ^command <scmd>
+           ^result.retrieved <e>)
+    (<scmd> ^query <q>)
+-->
+    #(force-learn <s>)
+    (<s> ^apply-context <e>)
+    (<scmd> ^query <q> -)
+}
+sp {apply*props*retrieve-cbset*success*force-learn
+    "Turn on learning for all substates except the one that returns to the topstate."
+    (state <s> ^operator.name props-retrieve-cbset
+               ^superstate.superstate {<ss> <> nil}
+               ^smem.result.retrieved <e>
+              -^apply-context)
+-->
+    (force-learn <s>)
+    #(force-learn <ss>)
+}
+# Source props_learn_l3.soar to enable chunking of the last layer.
+
+
+### OPERATOR ### 
+# <instructed operator>
+##
+# Propose any deltas contained in a loaded elab-context that has all-true conditions.
+### 
+
+# Propose an elab-context's delta 
+sp {propose*props*elab-context*delta*condition*all-true
+    "Propose the operator if all conditions are true."
+    (state <s> ^elab-context <pe>
+               ^prop-apply-buffer <b>)
+    #(<b> -^props-flag not-quiescent)    # Don't propose until prev instructions are fully applied
+    (<pe> ^delta <d>)
+    (<d> ^op-name <name>
+         ^all-conds-true true
+        -^prop-apply)    # Only for conditions
+    #-{(<d> ^prop.name <cname>
+    #      -^cond-success <cname>)} # It is not the case that this delta has untrue conditions
+-->
+    (<s> ^operator <o> + = )
+    (<o> ^name <name>
+         ^delta <d>)
+    (dont-learn <s>)
+}
+# Propose an elab-context's pre-cbset rule application
+sp {propose*props*elab-context*delta*action
+    "Propose the operator if it hasnt been applied yet."
+    (state <s> ^elab-context <pe>
+              -^props-flag apply-buffer-nonempty)
+    (<pe> ^delta <d>
+          ^const)              # Is a pre-cbset elab-context
+    (<d> ^prop-apply           # Only for actions (redundant)
+         ^op-name <dname>)
+-->
+    (<s> ^operator <o> + > =)
+    (<o> ^name <dname>
+         ^delta <d>)
+    (dont-learn <s>)
+}
+# Propose a cbset's action(s)
+sp {propose*props*cbset*delta*action*all-true
+    "Propose the operator if it hasnt been applied yet."
+    (state <s> ^apply-context <pe>
+               ^prop-working-buffer.apply <pba>)
+    (<pe> ^delta <d>)
+    (<d> ^prop-apply           # Only for actions
+         ^op-name <dname>)
+    #(<pba> -^delta-action.name <dname>) # It is not the case that this is a PROP action and it has been used already 
+    -{(<pba> ^delta-action.name <name>)
+      (<d> ^item-name <name>)}  # It is not the case that this operator contains used actions
+-->
+    (<s> ^operator <o> + > =)
+    (<o> ^name <dname>
+         ^delta <d>)
+}
+
+
+### OPERATOR ### 
+# elab-context-return
+##
+# Flush the actions added to this state's apply-buffer to the topstate's apply-buffer.
+# This will end the substate.
+### 
+
+#sp {propose*props*elab-context-return
+#    (state <s> ^prop-apply-buffer <b>
+#               ^props-flag apply-buffer-nonempty
+#               ^superstate.operator.delta # For chunk condition
+#              -^const     # Is an elab-context state
+#               ^elab-context <pe>)
+#  -{(<pe> ^delta.prop.name <cname>)
+#    (<b> -^apply.delta-action.name <cname>)}    # It is not the case that an operator delta has not been staged
+#-->
+#    (<s> ^operator <o> +)
+#    (<o> ^name elab-context-return)
+#}
+#sp {apply*props*elab-context-return*to-topstate
+#    "When finished composing actions, simply return the apply buffer."
+#    (state <s> ^operator.name elab-context-return
+#               ^prop-apply-buffer.apply <pa>
+#               ^topstate <ts>)
+#    (<ts> ^prop-apply-buffer <sb>)
+#-->
+#    (<sb> ^apply <pa>)
+#    (write | | (crlf) (crlf))
+#}
+
+
+### OPERATOR ### 
+# apply-context-return
+##
+# Flush the actions added to this state's apply-buffer to the superstate's apply-buffer.
+# This will end the substate.
+### 
+
+sp {propose*props*cbset-return
+    (state <s> ^prop-working-buffer.apply <ba>
+               #^props-flag working-buffer-nonempty
+               ^superstate <ss>
+               ^apply-context <pe>)
+    (<ss> ^operator.delta # For chunk condition
+          )
+  -{(<pe> ^delta.item-name <cname>)
+    (<ba> -^delta-action.name <cname>)}    # It is not the case that an operator delta has not been staged
+-->
+    (<s> ^operator <o> +)
+    (<o> ^name apply-context-return)
+}
+
+#sp {apply*props*cbset-return*to-working-state
+#    (state <s> ^operator.name elab-context-return
+#               ^topstate <> <ss>
+#               ^superstate <ss>)
+#    (<ss> ^prop-apply-buffer.apply <sba>)
+#-->
+#    (<sba> ^dc-stamp (dc))
+#}
+sp {apply*props*cbset-return*delta-action
+    (state <s> ^operator.name apply-context-return
+               ^prop-working-buffer.apply.delta-action <da>
+               ^superstate <ss>)
+    (<ss> ^prop-working-buffer.apply <sba>)
+-->
+    (<sba> ^delta-action <da>)
+}
+sp {apply*props*cbset-return*to-topstate
+    "When finished composing actions, simply return the apply buffer."
+    (state <s> ^operator.name apply-context-return
+               ^prop-working-buffer.apply <pa>
+               #^topstate <ss>
+               ^superstate <ss>)
+    (<ss> ^prop-apply-buffer <sb>)
+-->
+    (<sb> ^apply <pa>)
+    (<pa> ^dc-stamp (dc))
+    (write | | (crlf) (crlf))
+}
+
+
+### OPERATOR ### 
+# elab-context-return
+##
+# Flush the actions added to this state's apply-buffer to the superstate's apply-buffer.
+# This will end the substate.
+### 
+
+#sp {propose*props*elab-context-return*substate
+#    (state <s> ^prop-apply-buffer.apply <ba>
+#               ^props-flag apply-buffer-nonempty
+#               ^superstate <ss>
+#               ^elab-context <pe>)
+#    (<ss> ^operator.delta) # For chunk condition
+#-->
+#    (<s> ^operator <o> +)
+#    (<o> ^name elab-context-return)
+#}
+#sp {apply*props*elab-context-return
+#    "When finished composing actions, simply return the apply buffer."
+#    (state <s> ^operator.name elab-context-return
+#               ^prop-apply-buffer.apply <pa>
+#               #^topstate <ss>
+#               ^superstate <ss>)
+#    (<ss> ^prop-apply-buffer <sb>)
+#-->
+#    (<sb> ^apply <pa>)
+#    #(<pa> ^dc-stamp (dc))
+#    #(write | | (crlf) (crlf))
+#}
+#
+#sp {apply*props*elab-context-return*print-final
+#    "When finished composing actions, simply return the apply buffer."
+#    (state <s> ^operator.name elab-context-return
+#               ^topstate <ss>
+#               ^superstate <ss>)
+#-->
+#    (write | | (crlf) (crlf))
+#}
+
+sp {elaborate*props*elab-context-return*topstate
+    (state <s> ^prop-apply-buffer.apply <ba>
+               #^props-flag apply-buffer-nonempty
+               ^superstate <ss>)
+    (<ss> ^operator.delta) # For chunk condition
+    (<ss> ^prop-apply-buffer <sb>)
+-->
+    (<sb> ^apply <ba>)
+}
+sp {elaborate*props*elab-context-return
+    (state <s> ^prop-apply-buffer.apply <ba>
+               #^props-flag apply-buffer-nonempty
+               ^superstate <ss>)
+    (<s> ^operator.delta) # For chunk condition
+    (<ss> ^prop-apply-buffer <sb>
+         -^operator.delta)
+-->
+    (<sb> ^apply <ba>)
+}
+
+#sp {set*apply-buffer*trim-dc-stamp
+#    "Remove old dc-stamps within the same apply struct"
+#    :o-support
+#    (state <s> ^prop-apply-buffer.apply <pa>)
+#    (<pa> ^dc-stamp <dc1>
+#          ^dc-stamp > <dc1>)
+#-->
+#    (<pa> ^dc-stamp <dc1> -)
+#}
+
+
+sp {catch*props*failure*elab-context-return
+    (state <s> ^impasse no-change
+               ^attribute state
+               ^topstate.io.output-link <ol>
+               ^superstate <ss>) 
+-->
+    #(write (cmd print <ss> -d 4))
+    #(write (cmd preferences <ss> operator --names))
+    (<ol> ^error <e>)
+    (<e> ^msg |NOT RETURNING| )
+    (interrupt)
+}

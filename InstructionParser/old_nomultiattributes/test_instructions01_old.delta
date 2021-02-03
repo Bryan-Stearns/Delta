@@ -1,0 +1,33 @@
+(elab-context scotty-main
+	(ins do-tofu
+		(ref (wme <ob> wm.object))	; This is a comment
+		(condition (== <ob> feature const A) (== <ob> feature const B))
+		(action "recommend-tofu")
+		(description "If one object with both features A and B, trigger premade action"))
+	(ins do-cheese
+		(ref (wme <ob> wm.object))
+		(condition (== <ob> feature const C) (== <ob> feature const D))
+		(action "recommend-cheese")
+		(description "If one object with both features C and D, trigger deeper problem space"))
+	(ins do-fail
+		(ref (wme <ob> wm.object))
+		(condition (== <ob> feature const A) (== <ob> feature const C))
+		(action "recommend-failure")
+		(description "Test: Shouldn't get satisfied in test environment"))
+)
+
+
+(elab-context recommend-cheese
+	(ins do-cheddar
+		(ref (wme <ob1> wm.object) (wme <ob2> wm.object))
+		(condition (== <ob1> feature <ob2> feature) (<> <ob1> foo <ob2> foo))
+		(action "recommend-cheddar")
+		(description "Trigger premade action from substate")
+	)
+	(ins do-swiss
+		(ref (wme <ob1> wm.object) (wme <ob2> wm.object))
+		(condition (== <ob1> feature <ob2> herring))
+		(action "recommend-swiss")
+		(description "Trigger premade action from substate")
+	)
+)

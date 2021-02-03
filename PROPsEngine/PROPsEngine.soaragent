@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soaragent>
+  <startfile path="_firstload_props.soar" />
+  <members>
+    <member path="_firstload_props.soar" />
+    <member path="props_apply_buffer.soar" />
+    <member path="props_auto_addressing.soar" />
+    <member path="props_learn_l1.soar" />
+    <member path="props_learn_l2.soar" />
+    <member path="props_learn_l3.soar" />
+    <member path="props_primitives.soar" />
+    <member path="props_prohibit_list.soar" />
+    <member path="props_rl.soar" />
+    <member path="patient_info.soar" />
+    <member path="props_elab_contexts.soar" />
+  </members>
+</soaragent>
+
